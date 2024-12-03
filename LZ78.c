@@ -1,15 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-/*
-double linked list for base dictionary
-every node has
-next pointerr
-previous pointer
-idex Number
-element sring
-*/
-
 // dictionary linked list token
 struct token
 {
@@ -21,92 +12,121 @@ struct token
     int ref;
 };
 
+#pragma region function protypes
+//string functions
 int str_len(char *s);                       // returns string length
 int str_cmp(char *str1, char *str2, int j); // compare srings
 char *str_copy(char *source, int j);        // copy by length
-
-void printDict(struct token *head); // print dictionary linked list
+char *str_dup(char *s);
 
 int get_bit_count(unsigned index);
+
+//compression functions
+struct token *compress_file_to_dict(const char *filename);
 void write_compressed_binary(const char *filename, struct token *head);
+void readBinaryFile(const char *filename);
+
+void printDict(struct token *head); // print dictionary linked list
+#pragma endregion
 
 int main(int argc, char const *argv[])
 {
-    // Define  File streams
-    FILE *inFile;
+    if (argc < 2)
+    {
+        fprintf(stderr, "Usage: %s <input_file>\n", argv[0]);
+        return EXIT_FAILURE;
+    }
+
+    // Compress file to dictionary
+    struct token *head = compress_file_to_dict(argv[1]);
+
+    printf("\n"); // Print a newline
+    //printDict(head); // Print the token dictionary
+
+    // Write compressed data to binary file
+    write_compressed_binary("compressed.lz78", head);
+
+    readBinaryFile("compressed.lz78");
+
+    return 0;
+}
+
+
+
+struct token *compress_file_to_dict(const char *filename)
+{
+    FILE *inFile = fopen(filename, "r");
+    if (!inFile)
+    {
+        perror("Failed to open input file");
+        exit(EXIT_FAILURE);
+    }
 
     // Create head of dictionary
     struct token *head = (struct token *)malloc(sizeof(struct token));
+    if (!head)
+    {
+        perror("Failed to allocate memory for head");
+        exit(EXIT_FAILURE);
+    }
     head->index = 0;
     head->string = "_";
+    head->next = NULL;
 
-    // open file for reed
-    inFile = fopen(argv[1], "r");
-
-    char buffer[128] = {}; // space for sring operation
-    char ch;               // reeded char
+    char buffer[128] = {}; // Space for string operations
+    char ch;               // Read character
 
     while (1)
     {
-        struct token *cursor = head; // reset dictionary cursor
-        int lastI = 0;               // holds last equal token address
-        int j = 0;                   // holds buffer string length
+        struct token *cursor = head; // Reset dictionary cursor
+        int lastI = 0;               // Holds last equal token address
+        int j = 0;                   // Holds buffer string length
 
-        //
         ch = fgetc(inFile);
         buffer[j++] = ch;
 
-        if (ch == EOF) // if input file ends
+        if (ch == EOF) // If input file ends
         {
             break;
         }
 
-        while (1) // compare buffer with dictionary tokens by index iteration
+        while (1) // Compare buffer with dictionary tokens by index iteration
         {
-            if (str_cmp(cursor->string, buffer, j)) // if token exist in dictionary ; scale up the token
+            if (str_cmp(cursor->string, buffer, j)) // If token exists in dictionary
             {
-                lastI = cursor->index; // hold the last reference point
-                ch = fgetc(inFile);    // read nev character from file
-                buffer[j++] = ch;      // add new character to buffer
+                lastI = cursor->index; // Hold the last reference point
+                ch = fgetc(inFile);    // Read new character from file
+                buffer[j++] = ch;      // Add new character to buffer
                 continue;
             }
 
-            if (cursor->next == NULL) //  if dictionary ends ; add new token
+            if (cursor->next == NULL) // If dictionary ends, add new token
             {
-                cursor->next = (struct token *)malloc(sizeof(struct token)); // create
-                int inx = cursor->index;                                     // hold index
-                cursor = cursor->next;                                       // go forward
+                cursor->next = (struct token *)malloc(sizeof(struct token)); // Create
+                if (!cursor->next)
+                {
+                    perror("Failed to allocate memory for token");
+                    exit(EXIT_FAILURE);
+                }
 
-                cursor->index = 1 + inx;              // add index
-                cursor->ref = lastI;                  // add referronce  point
-                cursor->string = str_copy(buffer, j); // add sring
+                int inx = cursor->index; // Hold index
+                cursor = cursor->next;   // Go forward
 
-                // ı shud be wrrie o file in  here
-                printf("%d%c", cursor->ref, cursor->string[j - 1]);
+                cursor->index = 1 + inx;              // Add index
+                cursor->ref = lastI;                  // Add reference point
+                cursor->string = str_copy(buffer, j); // Add string
+                cursor->next = NULL;                  // Initialize next pointer
 
-                break; // whenever unique string occurs restart
+                printf("%d%c|", cursor->ref, cursor->string[j - 1]);
+                break; // Whenever unique string occurs restart
             }
 
-            cursor = cursor->next; // continue to search
+            cursor = cursor->next; // Continue to search
         }
     }
 
-    fclose(inFile);
-    printf("\n");    // close input file
-    printDict(head); // print the token dictionary
-    write_compressed_binary("compressed.lz78", head);
-    return 0;
-}
-
-int get_bit_count(unsigned index)
-{
-    int size = 0;
-    while (index)
-    {
-        index = index / 2;
-        size++;
-    }
-    return size;
+    fclose(inFile); // Close input file
+    return head;    // Return dictionary head
 }
 
 void write_compressed_binary(const char *filename, struct token *head)
@@ -177,6 +197,45 @@ void write_compressed_binary(const char *filename, struct token *head)
     printf("Compressed data has been written to the binary file '%s'.\n", filename);
 }
 
+void readBinaryFile(const char *filename) {
+    FILE *file = fopen(filename, "rb"); 
+    if (file == NULL) {
+        perror("Dosya açılırken hata oluştu");
+        return;
+    }
+
+    unsigned char byte;
+    int step  =  0;
+    while (fread(&byte, sizeof(unsigned char), 1, file) == 1) {
+
+        if (step==0)
+        {
+            printf("%c",byte);
+            step++;
+            continue;
+        }
+        // for (int i = 7; i >= 0; i--) {
+        //     printf("%d", (byte >> i) & 1);
+        // }
+        
+        printf(" ");
+    }
+    printf("\n");
+    fclose(file);
+}
+
+int get_bit_count(unsigned index)
+{
+    int size = 0;
+    while (index)
+    {
+        index = index / 2;
+        size++;
+    }
+    return size;
+}
+
+#pragma region sring functions
 char *str_copy(char *source, int j)
 {
     char *dest = (char *)malloc((j + 1) * sizeof(char));
@@ -226,6 +285,27 @@ int str_len(char *s)
     return sum;
 }
 
+char *str_dup(char *s)
+{
+    // String'in uzunluğunu bul
+    size_t len = str_len(s);
+    
+    // Yeni bir bellek bloğu tahsis et (uzunluk + 1, çünkü null-terminator gereklidir)
+    char *copy = (char *)malloc(len + 1);
+    
+    // Eğer bellek tahsisi başarısız olduysa
+    if (!copy)
+    {
+        perror("Failed to allocate memory for string copy");
+        exit(EXIT_FAILURE);
+    }
+
+    // Orijinal string'i yeni belleğe kopyala
+    s = str_copy(copy, len);
+
+    return copy; // Yeni kopyayı döndür
+}
+
 void printDict(struct token *head)
 {
     struct token *current = head;
@@ -236,3 +316,4 @@ void printDict(struct token *head)
     }
     printf("NULL\n"); // Listenin sonunu belirtmek için
 }
+#pragma endregion
