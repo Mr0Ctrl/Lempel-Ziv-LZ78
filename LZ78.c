@@ -13,7 +13,7 @@ struct token
 };
 
 #pragma region function protypes
-//string functions
+// string functions
 int str_len(char *s);                       // returns string length
 int str_cmp(char *str1, char *str2, int j); // compare srings
 char *str_copy(char *source, int j);        // copy by length
@@ -21,7 +21,7 @@ char *str_dup(char *s);
 
 int get_bit_count(unsigned index);
 
-//compression functions
+// compression functions
 struct token *compress_file_to_dict(const char *filename);
 void write_compressed_binary(const char *filename, struct token *head);
 void readBinaryFile(const char *filename);
@@ -41,7 +41,7 @@ int main(int argc, char const *argv[])
     struct token *head = compress_file_to_dict(argv[1]);
 
     printf("\n"); // Print a newline
-    //printDict(head); // Print the token dictionary
+    // printDict(head); // Print the token dictionary
 
     // Write compressed data to binary file
     write_compressed_binary("compressed.lz78", head);
@@ -50,8 +50,6 @@ int main(int argc, char const *argv[])
 
     return 0;
 }
-
-
 
 struct token *compress_file_to_dict(const char *filename)
 {
@@ -197,27 +195,40 @@ void write_compressed_binary(const char *filename, struct token *head)
     printf("Compressed data has been written to the binary file '%s'.\n", filename);
 }
 
-void readBinaryFile(const char *filename) {
-    FILE *file = fopen(filename, "rb"); 
-    if (file == NULL) {
-        perror("Dosya açılırken hata oluştu");
+/*
+A text compressed into this format is not suitable for encoding because\n
+the index and characters cannot be distinguished from each other since\n
+the length of the index values ​​are different from each other.\n
+\n
+This is my opinion.\n
+I try but I didn't succeed\n
+*/
+void readBinaryFile(const char *filename)
+{
+    printf("\nA text compressed into this format is not suitable for encoding because\nthe index and characters cannot be distinguished from each other since\nthe length of the index values ​​are different from each other.\n\nThis is my opinion.\nI tried decode but I didn't succeed\n");
+
+    FILE *file = fopen(filename, "rb");
+    if (file == NULL)
+    {
+        perror("Failed to open input file");
         return;
     }
 
     unsigned char byte;
-    int step  =  0;
-    while (fread(&byte, sizeof(unsigned char), 1, file) == 1) {
+    int step = 0;
+    while (fread(&byte, sizeof(unsigned char), 1, file) == 1)
+    {
 
-        if (step==0)
+        if (step == 0)
         {
-            printf("%c",byte);
+            printf("%c", byte);//fist element always came without index  
             step++;
             continue;
         }
         // for (int i = 7; i >= 0; i--) {
         //     printf("%d", (byte >> i) & 1);
         // }
-        
+
         printf(" ");
     }
     printf("\n");
@@ -289,10 +300,10 @@ char *str_dup(char *s)
 {
     // String'in uzunluğunu bul
     size_t len = str_len(s);
-    
+
     // Yeni bir bellek bloğu tahsis et (uzunluk + 1, çünkü null-terminator gereklidir)
     char *copy = (char *)malloc(len + 1);
-    
+
     // Eğer bellek tahsisi başarısız olduysa
     if (!copy)
     {
