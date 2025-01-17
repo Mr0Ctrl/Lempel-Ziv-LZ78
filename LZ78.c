@@ -18,10 +18,12 @@ int str_len(char *s);                       // returns string length
 int str_cmp(char *str1, char *str2, int j); // compare srings
 char *str_copy(char *source, int j);        // copy by length
 char *str_dup(char *s);
+char *str_cat(char *dest, const char *src);
 
 int get_bit_count(unsigned index);
 
 // compression functions
+char *decompress_string(char *compressed);
 struct token *compress_file_to_dict(const char *filename);
 void write_compressed_binary(const char *filename, struct token *head);
 void readBinaryFile(const char *filename);
@@ -48,8 +50,67 @@ int main(int argc, char const *argv[])
 
     readBinaryFile("compressed.lz78");
 
+    char *compressed = "0a1a0b1b2a";
+    printf("%s\n",compressed);
+    char *decompressed = decompress_string(compressed);
+    printf("Decompressed string: %s\n", decompressed);
+
+    free(decompressed); 
     return 0;
 }
+
+char *decompress_string(char *compressed) {
+    int len = str_len(compressed); 
+    char **dict = malloc(len * sizeof(char *)); 
+    if (!dict) {
+        perror("Memory allocation failed");
+        exit(EXIT_FAILURE);
+    }
+
+    for (int i = 0; i < len; i++) {
+        dict[i] = NULL; 
+    }
+
+    char *result = malloc(len * 10 * sizeof(char)); 
+    if (!result) {
+        perror("Memory allocation failed");
+        exit(EXIT_FAILURE);
+    }
+    result[0] = '\0'; 
+
+    int index = 0;
+    for (int i = 0; i < len; ) {
+        int ref = compressed[i++] - '0'; 
+
+        char character = compressed[i++];
+
+        char *entry;
+        if (ref == 0) {
+            entry = malloc(2 * sizeof(char));
+            entry[0] = character;
+            entry[1] = '\0';
+        } else {
+            int prev_len = str_len(dict[ref - 1]);
+            entry = malloc((prev_len + 2) * sizeof(char));
+            entry = str_copy(dict[ref - 1], prev_len );
+            entry[prev_len] = character;
+            entry[prev_len + 1] = '\0';
+        }
+
+        // 4. Sözlüğe ekle ve sonucu güncelle
+        dict[index++] = entry;
+        str_cat(result, entry); // Sonucu genişlet
+    }
+
+    // Bellek temizliği
+    for (int i = 0; i < index; i++) {
+        free(dict[i]);
+    }
+    free(dict);
+
+    return result; // Orijinal string'i döndür
+}
+
 
 struct token *compress_file_to_dict(const char *filename)
 {
@@ -326,5 +387,26 @@ void printDict(struct token *head)
         current = current->next;
     }
     printf("NULL\n"); // Listenin sonunu belirtmek için
+}
+
+char *str_cat(char *dest, const char *src) {
+    char *original_dest = dest;
+
+    // dest'in sonuna git
+    while (*dest != '\0') {
+        dest++;
+    }
+
+    // src'yi dest'e ekle
+    while (*src != '\0') {
+        *dest = *src;
+        dest++;
+        src++;
+    }
+
+    // Sonuna null karakter ekle
+    *dest = '\0';
+
+    return original_dest; // Birleştirilmiş string'i döndür
 }
 #pragma endregion
