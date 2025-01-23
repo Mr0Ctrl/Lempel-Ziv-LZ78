@@ -23,10 +23,11 @@ char *str_cat(char *dest, const char *src);
 int get_bit_count(unsigned index);
 
 // compression functions
-char *decompress_string(char *compressed);
+
 struct token *compress_file_to_dict(const char *filename);
 void write_compressed_binary(const char *filename, struct token *head);
-void readBinaryFile(const char *filename);
+struct token * readBinaryFile(const char *filename);
+char *decompress_string(char *compressed);
 
 void printDict(struct token *head); // print dictionary linked list
 #pragma endregion
@@ -40,15 +41,18 @@ int main(int argc, char const *argv[])
     }
 
     // Compress file to dictionary
-    struct token *head = compress_file_to_dict(argv[1]);
+    struct token *input = compress_file_to_dict(argv[1]);//generates dictionary
 
     printf("\n"); // Print a newline
-    // printDict(head); // Print the token dictionary
+    printDict(input); // Print the token dictionary
+    printf("\n"); // Print a newline
 
     // Write compressed data to binary file
-    write_compressed_binary("compressed.lz78", head);
+    write_compressed_binary("compressed.lz78", input);
+    printf("\n"); // Print a newline
 
-    readBinaryFile("compressed.lz78");
+    struct token *output = readBinaryFile("compressed.lz78");
+    printf("\n"); // Print a newline
 
     char *compressed = "0a1a0b1b2a";
     printf("%s\n",compressed);
@@ -59,60 +63,7 @@ int main(int argc, char const *argv[])
     return 0;
 }
 
-char *decompress_string(char *compressed) {
-    int len = str_len(compressed); 
-    char **dict = malloc(len * sizeof(char *)); 
-    if (!dict) {
-        perror("Memory allocation failed");
-        exit(EXIT_FAILURE);
-    }
-
-    for (int i = 0; i < len; i++) {
-        dict[i] = NULL; 
-    }
-
-    char *result = malloc(len * 10 * sizeof(char)); 
-    if (!result) {
-        perror("Memory allocation failed");
-        exit(EXIT_FAILURE);
-    }
-    result[0] = '\0'; 
-
-    int index = 0;
-    for (int i = 0; i < len; ) {
-        int ref = compressed[i++] - '0'; 
-
-        char character = compressed[i++];
-
-        char *entry;
-        if (ref == 0) {
-            entry = malloc(2 * sizeof(char));
-            entry[0] = character;
-            entry[1] = '\0';
-        } else {
-            int prev_len = str_len(dict[ref - 1]);
-            entry = malloc((prev_len + 2) * sizeof(char));
-            entry = str_copy(dict[ref - 1], prev_len );
-            entry[prev_len] = character;
-            entry[prev_len + 1] = '\0';
-        }
-
-        // 4. Sözlüğe ekle ve sonucu güncelle
-        dict[index++] = entry;
-        str_cat(result, entry); // Sonucu genişlet
-    }
-
-    // Bellek temizliği
-    for (int i = 0; i < index; i++) {
-        free(dict[i]);
-    }
-    free(dict);
-
-    return result; // Orijinal string'i döndür
-}
-
-
-struct token *compress_file_to_dict(const char *filename)
+struct token *compress_file_to_dict(const char *filename)//generates dictionary
 {
     FILE *inFile = fopen(filename, "r");
     if (!inFile)
@@ -205,7 +156,7 @@ void write_compressed_binary(const char *filename, struct token *head)
     while (current != NULL)
     {
         // 1. Get the number of bits required for the reference
-        int ref_bits = get_bit_count(current->ref);
+        int ref_bits = get_bit_count(current->index-1);
         if (ref_bits == -1)
         {
             fprintf(stderr, "Invalid reference index: %u\n", current->ref);
@@ -213,7 +164,7 @@ void write_compressed_binary(const char *filename, struct token *head)
         }
 
         // 2. Write the reference to the buffer
-        for (int i = ref_bits - 1; i >= 0; i--)
+        for (int i = ref_bits-1; i >= 0; i--)
         {
             buffer = (buffer << 1) | ((current->ref >> i) & 1); // Add the corresponding bit
             bit_count++;
@@ -264,36 +215,189 @@ the length of the index values ​​are different from each other.\n
 This is my opinion.\n
 I try but I didn't succeed\n
 */
-void readBinaryFile(const char *filename)
+struct token * readBinaryFile(const char *filename)
 {
-    printf("\nA text compressed into this format is not suitable for encoding because\nthe index and characters cannot be distinguished from each other since\nthe length of the index values ​​are different from each other.\n\nThis is my opinion.\nI tried decode but I didn't succeed\n");
+    //printf("\nA text compressed into this format is not suitable for encoding because\nthe index and characters cannot be distinguished from each other since\nthe length of the index values ​​are different from each other.\n\nThis is my opinion.\nI tried decode but I didn't succeed\n");
 
     FILE *file = fopen(filename, "rb");
     if (file == NULL)
     {
         perror("Failed to open input file");
-        return;
+        return NULL;
     }
 
-    unsigned char byte;
-    int step = 0;
-    while (fread(&byte, sizeof(unsigned char), 1, file) == 1)
-    {
+    unsigned char buffer; // 8-bit temporary buffer
+    unsigned char value = 0;//our char
+    int idx = 0;//curen inddex
+    int idx_size;//size off re
 
-        if (step == 0)
-        {
-            printf("%c", byte);//fist element always came without index  
-            step++;
+    int flag = 1;//i we complate  a char
+
+    int bit_pos = 8;//step coounter
+    int bit_count = 0;//coountffor value
+
+
+    while (1)
+    {
+        if(7 <= bit_pos){
+            bit_pos = 0;
+            printf("?");
+            if(!fread(&buffer, sizeof(unsigned char), 1, file)){
+
+                    break;
+            }
+        }
+
+        if(flag){//read for index
+            idx_size = get_bit_count(idx);
+            printf("\n%d-",idx);
+            for (int i = 7-bit_pos; i > 7-bit_pos-idx_size; i--) {
+                printf("%d", (buffer >> i) & 1);
+            }
+            bit_pos = bit_pos + idx_size;
+            printf("-%d\t",bit_pos);
+            flag = 0;
+            idx ++;
+            bit_count = 0;
+
+        }
+
+        if(7 <= bit_pos){
             continue;
         }
-        // for (int i = 7; i >= 0; i--) {
-        //     printf("%d", (byte >> i) & 1);
-        // }
+        
+        for(int i = 7-bit_pos ; i >= 0; i--){
+            printf("%d*",i);
+            bit_count++;
+            value = (value<<1)|((buffer >> i) & 1);
 
-        printf(" ");
+            if (8 == bit_count){
+                bit_pos = 8-i; //7-bitpoosition
+                flag = 1;
+
+                for (int i = 7; i >= 0; i--) {//print    
+                    printf("%d", (value >> i) & 1);
+                }
+                printf("/'%c'-b%d/",value,bit_pos);
+
+                break;
+            }
+            if(i==0){
+                bit_pos = 7;
+            }
+        }
+        printf("_");
+        //bit_pos = 7;
+
     }
+
+    /*
+    struct token *head = (struct token *)malloc(sizeof(struct token));
+    struct token *cursor = head; // Reset dictionary cursor
+
+
+        unsigned char byte; //bitleri tutar
+    int step = 0;
+
+    unsigned char buffer = 0; // 8-bit temporary buffer
+    int buf_cap = 8;
+
+            if(buf_cap){
+            int size = get_bit_count(step);
+            printf("\n%d:",step);
+            
+            if(fread(&byte, sizeof(unsigned char), 1, file) != 1){
+                break;
+            }
+        }
+
+        for (int i = size-1; i >= 0; i--) {//read for index
+            printf("%d", (byte >> i) & 1);
+        }
+        bit_pos = bit_pos - size;
+        bit_rem = size;
+
+        for(int i = bit_pos-1; i >= 0; i--){
+
+            buffer = (buffer<<1)|((byte >> i) & 1);
+        }
+
+        if(fread(&byte, sizeof(unsigned char), 1, file) != 1){
+            break;
+        }
+
+        for(int i = bit_rem-1; i >= 0; i--){
+
+            buffer = (buffer<<1)|((byte >> i) & 1);
+        }
+
+        printf("\t'%c' -> ",buffer);
+
+        for (int i = 7; i >= 0; i--) {//read for character
+            
+            printf("%d", (buffer >> i) & 1);
+            
+        }
+
+
+        step++;
+
+        */
     printf("\n");
     fclose(file);
+    return NULL;
+}
+
+char *decompress_string(char *compressed) {
+    int len = str_len(compressed); 
+    char **dict = malloc(len * sizeof(char *)); 
+    if (!dict) {
+        perror("Memory allocation failed");
+        exit(EXIT_FAILURE);
+    }
+
+    for (int i = 0; i < len; i++) {
+        dict[i] = NULL; 
+    }
+
+    char *result = malloc(len * 10 * sizeof(char)); 
+    if (!result) {
+        perror("Memory allocation failed");
+        exit(EXIT_FAILURE);
+    }
+    result[0] = '\0'; 
+
+    int index = 0;
+    for (int i = 0; i < len; ) {
+        int ref = compressed[i++] - '0'; 
+
+        char character = compressed[i++];
+
+        char *entry;
+        if (ref == 0) {
+            entry = malloc(2 * sizeof(char));
+            entry[0] = character;
+            entry[1] = '\0';
+        } else {
+            int prev_len = str_len(dict[ref - 1]);
+            entry = malloc((prev_len + 2) * sizeof(char));
+            entry = str_copy(dict[ref - 1], prev_len );
+            entry[prev_len] = character;
+            entry[prev_len + 1] = '\0';
+        }
+
+        // 4. Sözlüğe ekle ve sonucu güncelle
+        dict[index++] = entry;
+        str_cat(result, entry); // Sonucu genişlet
+    }
+
+    // Bellek temizliği
+    for (int i = 0; i < index; i++) {
+        free(dict[i]);
+    }
+    free(dict);
+
+    return result; // Orijinal string'i döndür
 }
 
 int get_bit_count(unsigned index)
