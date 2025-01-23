@@ -26,7 +26,7 @@ int get_bit_count(unsigned index);
 
 struct token *compress_file_to_dict(const char *filename);
 void write_compressed_binary(const char *filename, struct token *head);
-struct token * readBinaryFile(const char *filename);
+struct token *readBinaryFile(const char *filename);
 char *decompress_string(char *compressed);
 
 void printDict(struct token *head); // print dictionary linked list
@@ -41,11 +41,11 @@ int main(int argc, char const *argv[])
     }
 
     // Compress file to dictionary
-    struct token *input = compress_file_to_dict(argv[1]);//generates dictionary
+    struct token *input = compress_file_to_dict(argv[1]); // generates dictionary
 
-    printf("\n"); // Print a newline
+    printf("\n");     // Print a newline
     printDict(input); // Print the token dictionary
-    printf("\n"); // Print a newline
+    printf("\n");     // Print a newline
 
     // Write compressed data to binary file
     write_compressed_binary("compressed.lz78", input);
@@ -55,15 +55,15 @@ int main(int argc, char const *argv[])
     printf("\n"); // Print a newline
 
     char *compressed = "0a1a0b1b2a";
-    printf("%s\n",compressed);
+    printf("%s\n", compressed);
     char *decompressed = decompress_string(compressed);
     printf("Decompressed string: %s\n", decompressed);
 
-    free(decompressed); 
+    free(decompressed);
     return 0;
 }
 
-struct token *compress_file_to_dict(const char *filename)//generates dictionary
+struct token *compress_file_to_dict(const char *filename) // generates dictionary
 {
     FILE *inFile = fopen(filename, "r");
     if (!inFile)
@@ -156,7 +156,7 @@ void write_compressed_binary(const char *filename, struct token *head)
     while (current != NULL)
     {
         // 1. Get the number of bits required for the reference
-        int ref_bits = get_bit_count(current->index-1);
+        int ref_bits = get_bit_count(current->index - 1);
         if (ref_bits == -1)
         {
             fprintf(stderr, "Invalid reference index: %u\n", current->ref);
@@ -164,7 +164,7 @@ void write_compressed_binary(const char *filename, struct token *head)
         }
 
         // 2. Write the reference to the buffer
-        for (int i = ref_bits-1; i >= 0; i--)
+        for (int i = ref_bits - 1; i >= 0; i--)
         {
             buffer = (buffer << 1) | ((current->ref >> i) & 1); // Add the corresponding bit
             bit_count++;
@@ -215,9 +215,9 @@ the length of the index values ​​are different from each other.\n
 This is my opinion.\n
 I try but I didn't succeed\n
 */
-struct token * readBinaryFile(const char *filename)
+struct token *readBinaryFile(const char *filename)
 {
-    //printf("\nA text compressed into this format is not suitable for encoding because\nthe index and characters cannot be distinguished from each other since\nthe length of the index values ​​are different from each other.\n\nThis is my opinion.\nI tried decode but I didn't succeed\n");
+    // printf("\nA text compressed into this format is not suitable for encoding because\nthe index and characters cannot be distinguished from each other since\nthe length of the index values ​​are different from each other.\n\nThis is my opinion.\nI tried decode but I didn't succeed\n");
 
     FILE *file = fopen(filename, "rb");
     if (file == NULL)
@@ -226,19 +226,96 @@ struct token * readBinaryFile(const char *filename)
         return NULL;
     }
 
-    unsigned char buffer; // 8-bit temporary buffer
-    unsigned char value = 0;//our char
-    int idx = 0;//curen inddex
-    int idx_size;//size off re
+    unsigned char buffer;    // 8-bit temporary buffer
+    unsigned char value = 0; // our char
+    int idx = 0;             // curen inddex
+    int idx_size;            // size off re
 
-    int flag = 1;//i we complate  a char
+    int flag = 1; // i we complate  a char
 
-    int bit_pos = 8;//step coounter
-    int bit_count = 0;//coountffor value
+    int bit_pos = 8;   // step coounter
+    int bit_count = 0; // coountffor value
 
+    int state = 0;
 
-    while (1)
+    while (flag)
     {
+
+        if (!state)
+        {
+
+            idx_size = get_bit_count(idx);
+            printf("\n%d-", idx);
+
+            if (!idx_size)
+            {
+                idx++;
+                state = 1;
+                printf("_\t");
+            }
+
+            for (int i = 0; i < idx_size; i++) // int i = 7 - bit_pos; i > 7 - bit_pos - idx_size; i--
+            {
+                if (7 < bit_pos)
+                {
+                    bit_pos = 0;
+                    if (!fread(&buffer, sizeof(unsigned char), 1, file))
+                    {
+                        flag = 0;
+                    }
+                }
+
+                int shift = 7 - bit_pos;
+                bit_pos++;
+
+                printf("%d", (buffer >> shift) & 1);
+
+                if (i == idx_size - 1)
+                {
+                    idx++;
+                    state = 1;
+                    printf("\t");
+                }
+
+
+            }
+        }
+
+        printf("%d\t", bit_pos);
+
+        if (state)
+        {
+
+            for (int i = 0; i < 8; i++) // int i = 7 - bit_pos; i > 7 - bit_pos - idx_size; i--
+            {
+                if (7 < bit_pos)
+                {
+                    bit_pos = 0;
+                    if (!fread(&buffer, sizeof(unsigned char), 1, file))
+                    {
+                        flag = 0;
+                    }
+                }
+
+                int shift = 7 - bit_pos;
+                bit_pos++;
+
+                printf("\\%d/", bit_pos);
+
+                value = (value << 1) | ((buffer >> shift) & 1);
+                printf("%d", (buffer >> shift) & 1);
+
+                if (i == 7)
+                {
+                    printf("\t%d-'%c'", bit_pos, value);
+                    state = 0;
+                }
+            }
+        }
+        char a;
+        scanf("%c",&a);
+
+        /*
         if(7 <= bit_pos){
             bit_pos = 0;
             printf("?");
@@ -265,7 +342,7 @@ struct token * readBinaryFile(const char *filename)
         if(7 <= bit_pos){
             continue;
         }
-        
+
         for(int i = 7-bit_pos ; i >= 0; i--){
             printf("%d*",i);
             bit_count++;
@@ -275,7 +352,7 @@ struct token * readBinaryFile(const char *filename)
                 bit_pos = 8-i; //7-bitpoosition
                 flag = 1;
 
-                for (int i = 7; i >= 0; i--) {//print    
+                for (int i = 7; i >= 0; i--) {//print
                     printf("%d", (value >> i) & 1);
                 }
                 printf("/'%c'-b%d/",value,bit_pos);
@@ -288,100 +365,56 @@ struct token * readBinaryFile(const char *filename)
         }
         printf("_");
         //bit_pos = 7;
-
+        */
     }
 
-    /*
-    struct token *head = (struct token *)malloc(sizeof(struct token));
-    struct token *cursor = head; // Reset dictionary cursor
-
-
-        unsigned char byte; //bitleri tutar
-    int step = 0;
-
-    unsigned char buffer = 0; // 8-bit temporary buffer
-    int buf_cap = 8;
-
-            if(buf_cap){
-            int size = get_bit_count(step);
-            printf("\n%d:",step);
-            
-            if(fread(&byte, sizeof(unsigned char), 1, file) != 1){
-                break;
-            }
-        }
-
-        for (int i = size-1; i >= 0; i--) {//read for index
-            printf("%d", (byte >> i) & 1);
-        }
-        bit_pos = bit_pos - size;
-        bit_rem = size;
-
-        for(int i = bit_pos-1; i >= 0; i--){
-
-            buffer = (buffer<<1)|((byte >> i) & 1);
-        }
-
-        if(fread(&byte, sizeof(unsigned char), 1, file) != 1){
-            break;
-        }
-
-        for(int i = bit_rem-1; i >= 0; i--){
-
-            buffer = (buffer<<1)|((byte >> i) & 1);
-        }
-
-        printf("\t'%c' -> ",buffer);
-
-        for (int i = 7; i >= 0; i--) {//read for character
-            
-            printf("%d", (buffer >> i) & 1);
-            
-        }
-
-
-        step++;
-
-        */
     printf("\n");
     fclose(file);
     return NULL;
 }
 
-char *decompress_string(char *compressed) {
-    int len = str_len(compressed); 
-    char **dict = malloc(len * sizeof(char *)); 
-    if (!dict) {
+char *decompress_string(char *compressed)
+{
+    int len = str_len(compressed);
+    char **dict = malloc(len * sizeof(char *));
+    if (!dict)
+    {
         perror("Memory allocation failed");
         exit(EXIT_FAILURE);
     }
 
-    for (int i = 0; i < len; i++) {
-        dict[i] = NULL; 
+    for (int i = 0; i < len; i++)
+    {
+        dict[i] = NULL;
     }
 
-    char *result = malloc(len * 10 * sizeof(char)); 
-    if (!result) {
+    char *result = malloc(len * 10 * sizeof(char));
+    if (!result)
+    {
         perror("Memory allocation failed");
         exit(EXIT_FAILURE);
     }
-    result[0] = '\0'; 
+    result[0] = '\0';
 
     int index = 0;
-    for (int i = 0; i < len; ) {
-        int ref = compressed[i++] - '0'; 
+    for (int i = 0; i < len;)
+    {
+        int ref = compressed[i++] - '0';
 
         char character = compressed[i++];
 
         char *entry;
-        if (ref == 0) {
+        if (ref == 0)
+        {
             entry = malloc(2 * sizeof(char));
             entry[0] = character;
             entry[1] = '\0';
-        } else {
+        }
+        else
+        {
             int prev_len = str_len(dict[ref - 1]);
             entry = malloc((prev_len + 2) * sizeof(char));
-            entry = str_copy(dict[ref - 1], prev_len );
+            entry = str_copy(dict[ref - 1], prev_len);
             entry[prev_len] = character;
             entry[prev_len + 1] = '\0';
         }
@@ -392,7 +425,8 @@ char *decompress_string(char *compressed) {
     }
 
     // Bellek temizliği
-    for (int i = 0; i < index; i++) {
+    for (int i = 0; i < index; i++)
+    {
         free(dict[i]);
     }
     free(dict);
@@ -493,16 +527,19 @@ void printDict(struct token *head)
     printf("NULL\n"); // Listenin sonunu belirtmek için
 }
 
-char *str_cat(char *dest, const char *src) {
+char *str_cat(char *dest, const char *src)
+{
     char *original_dest = dest;
 
     // dest'in sonuna git
-    while (*dest != '\0') {
+    while (*dest != '\0')
+    {
         dest++;
     }
 
     // src'yi dest'e ekle
-    while (*src != '\0') {
+    while (*src != '\0')
+    {
         *dest = *src;
         dest++;
         src++;
